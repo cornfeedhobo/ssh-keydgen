@@ -1,0 +1,79 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "IQkUIOnvlf0tYloFx9mLaXSvXWQ=",
+			"path": "golang.org/x/crypto/curve25519",
+			"revision": "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd",
+			"revisionTime": "2017-09-25T11:22:06Z"
+		},
+		{
+			"checksumSHA1": "1hwn8cgg4EVXhCpJIqmMbzqnUo0=",
+			"path": "golang.org/x/crypto/ed25519",
+			"revision": "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd",
+			"revisionTime": "2017-09-25T11:22:06Z"
+		},
+		{
+			"checksumSHA1": "LXFcVx8I587SnWmKycSDEq9yvK8=",
+			"path": "golang.org/x/crypto/ed25519/internal/edwards25519",
+			"revision": "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd",
+			"revisionTime": "2017-09-25T11:22:06Z"
+		},
+		{
+			"checksumSHA1": "1MGpGDQqnUoRpv7VEcQrXOBydXE=",
+			"path": "golang.org/x/crypto/pbkdf2",
+			"revision": "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd",
+			"revisionTime": "2017-09-25T11:22:06Z"
+		},
+		{
+			"checksumSHA1": "y/oIaxq2d3WPizRZfVjo8RCRYTU=",
+			"path": "golang.org/x/crypto/ripemd160",
+			"revision": "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd",
+			"revisionTime": "2017-09-25T11:22:06Z"
+		},
+		{
+			"checksumSHA1": "dHh6VeHcbNg11miGjGEl8LbPe7w=",
+			"path": "golang.org/x/crypto/scrypt",
+			"revision": "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd",
+			"revisionTime": "2017-09-25T11:22:06Z"
+		},
+		{
+			"checksumSHA1": "Wi44TcpIOXdojyVWkvyOBnBKIS4=",
+			"path": "golang.org/x/crypto/ssh",
+			"revision": "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd",
+			"revisionTime": "2017-09-25T11:22:06Z"
+		},
+		{
+			"checksumSHA1": "ujKeyWHFOYmXm5IgAxfyFCGefsY=",
+			"path": "golang.org/x/crypto/ssh/agent",
+			"revision": "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd",
+			"revisionTime": "2017-09-25T11:22:06Z"
+		},
+		{
+			"checksumSHA1": "5Yb2z6UO+Arm/TEd+OEtdnwOt1A=",
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd",
+			"revisionTime": "2017-09-25T11:22:06Z"
+		},
+		{
+			"checksumSHA1": "/DZoyfWT3pwhm2Z/lWobVsc67m0=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "1e2299c37cc91a509f1b12369872d27be0ce98a6",
+			"revisionTime": "2017-11-09T13:50:42Z"
+		},
+		{
+			"checksumSHA1": "ck5uxoEeMDUL/QqPvGvBmcbsJzg=",
+			"path": "golang.org/x/sys/windows",
+			"revision": "1e2299c37cc91a509f1b12369872d27be0ce98a6",
+			"revisionTime": "2017-11-09T13:50:42Z"
+		},
+		{
+			"checksumSHA1": "Yx1MU40fyGe7hhqW9+dkv8kXa60=",
+			"path": "gopkg.in/urfave/cli.v1",
+			"revision": "cfb38830724cc34fedffe9a2a29fb54fa9169cd1",
+			"revisionTime": "2017-08-11T01:42:03Z"
+		}
+	],
+	"rootPath": "github.com/cornfeedhobo/ssh-keydgen"
+}
