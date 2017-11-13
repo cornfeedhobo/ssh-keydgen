@@ -14,3 +14,8 @@ max_line_length = 160
 indent_style = space
 indent_size = 2
 tab_width = 2
+
+[**.travis.yml]
+indent_style = space
+indent_size = 2
+tab_width = 2
