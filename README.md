@@ -1,4 +1,4 @@
-ssh-keydgen
+ssh-keydgen [![Travis](https://img.shields.io/travis/cornfeedhobo/ssh-keydgen.svg)]() [![Github All Releases](https://img.shields.io/github/downloads/cornfeedhobo/ssh-keydgen/total.svg)]()
 ===========
 
 Generate _Deterministic_ SSH keys

@@ -7,17 +7,16 @@ go:
   - 1.9
 
 script:
-  - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s" -a -installsuffix cgo -o ssh-keydgen-linux-amd64
-  - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s" -a -installsuffix cgo -o ssh-keydgen-darwin-amd64
-  - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s" -a -installsuffix cgo -o ssh-keydgen-windows-amd64
+  - go get github.com/mitchellh/gox
+  - CGO_ENABLED=0 gox -ldflags "-s" -rebuild
 
 deploy:
+  on:
+    tags: true
+    go: 1.9
   provider: releases
   api_key:
     secure: Fo3WhmhJB+gZ0wvUybQytg+tTcBnpCkafifnmOUj74zAbXbCnhoomIc9QhfNJciyrDV7bbVQCH9KmPiHP1bv/d6BE6Ft19hPtwdfreJ31TjuXEki0/WjH4iStv95AVhonxChMt4Whr96G0qPnEkmjF1+CurPA3v7FrqbAoYFrruO57I4uIIrHQYbW8N1fusX4AI4LgHqqJ5Kw5XHLvOqWd+ZsNd9t1O6rm49N7My3/xjYrG2T5uw/cycwIxFWYMD6joVNQ0r0DdPsjARkgKDqUZ0H9sbCem7FF/FnQN7bemJ5yiZKNnv5WBfOIpoh42fQFSnPyRLiIN8DQ+PualtEu4Y5Vn5xg80n9hcIV8wN9O8y8dGTd0vWnHpZaeHJ7mhBamahj5tHW7X444pLDPQTg6JYTI2javPj4hs4GpNnnieVkofVoTBsH3JxcxuSlLgNJ9dTZJFMF9wLDOfT9VSyAYpMx5GACLpoKFsVvWYbi9ZmjWtmJQfIas7DBOaWsLlimgb7Kk8Eh+CjaGPRWmvss+GwU2gbGBwQLWU/gZZabl8Y/E+aoL/UWziuv/X4fe0DHPHG6a3zviVVkkCuF6JxqfOf+8YU2zgdJqdPOwzQccMwTngvs+VMZ+7uXvJSg+COSDCziBSnnVEU7Spx8egzhabkJAGsFnvsKtDrkpEjpE=
   skip_cleanup: true
   file_glob: true
-  file: ssh-keydgen-*
-  on:
-    tags: true
-    go: 1.9
+  file: ssh-keydgen_*
