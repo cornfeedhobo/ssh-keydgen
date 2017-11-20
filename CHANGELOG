@@ -1,0 +1,10 @@
+* Mon Nov 20 2017 cornfeedhobo 0.2.0
+- Refactor key management to a struct-based approach
+- Drop printing to stdout and switch to writing files like OpenSSH's ssh-keygen
+- Refactor resource names
+- Style clean up
+- Add configurable work factor
+- Add tests
+
+* Sun Nov 12 2017 cornfeedhobo 0.1.0
+- initial draft

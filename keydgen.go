@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -9,110 +10,44 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
-	"fmt"
-	"io"
 	"math/big"
-	"net"
-	"os"
-	"strings"
 
 	"golang.org/x/crypto/ed25519"
-	"golang.org/x/crypto/ssh/agent"
-	"gopkg.in/urfave/cli.v1"
+	"golang.org/x/crypto/ssh"
 )
 
-func keydgen(ctx *cli.Context) error {
+type KeyType string
 
-	var keyType = strings.ToLower(ctx.String("t"))
-	var keyBits = ctx.Int("b")
+const (
+	DSA     KeyType = "dsa"
+	ECDSA   KeyType = "ecdsa"
+	RSA     KeyType = "rsa"
+	ED25519 KeyType = "ed25519"
+)
 
-	if keyType != DSA && keyType != ECDSA && keyType != ED25519 && keyType != RSA {
-		return cli.NewExitError("unsupported key type", errCode)
-	}
+var (
+	ErrUnsupportedKeyType   = errors.New("unsupported key type")
+	ErrUnsupportedKeyLength = errors.New("invalid key length")
+	ErrUnsuppontedCurve     = errors.New("only P-256, P-384 and P-521 EC keys are supported")
+)
 
-	if ctx.Bool("a") && os.Getenv("SSH_AUTH_SOCK") == "" {
-		return cli.NewExitError("SSH_AUTH_SOCK not set", errCode)
-	}
+type Keydgen struct {
+	Seed  []byte
+	Type  KeyType
+	Bits  int
+	Curve int
 
-	// get the password ...
-	password, err := getPassword()
-	if err != nil {
-		return cli.NewExitError(err.Error(), bugCode)
-	}
-
-	fmt.Println("Generating public/private " + keyType + " key pair")
-
-	privateKey, err := generateKey(password, keyType, keyBits, ctx.Int("c"))
-	if err != nil {
-		return cli.NewExitError(err.Error(), errCode)
-	}
-
-	// Adding to agent ...
-	if ctx.Bool("a") {
-
-		conn, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
-		if err != nil {
-			return cli.NewExitError(err.Error(), bugCode)
-		}
-
-		if keyType == "ed25519" { // because client.Add() requires a pointer for all types
-			k := privateKey.(ed25519.PrivateKey)
-			privateKey = &k
-		}
-
-		if err := agent.NewClient(conn).Add(agent.AddedKey{PrivateKey: privateKey}); err != nil {
-			return cli.NewExitError(err.Error(), errCode)
-		}
-
-		return nil
-
-	}
-
-	// Marshal for printing ...
-	block, err := generatePEMBlock(keyType, privateKey)
-	if err != nil {
-		return cli.NewExitError(err.Error(), errCode)
-	}
-
-	var w io.Writer
-
-	if ctx.String("o") != "" {
-
-		// output to the desired file...
-		var fh *os.File
-		fh, err = os.Create(ctx.String("o"))
-		if err != nil {
-			return cli.NewExitError(err.Error(), errCode)
-		}
-		defer fh.Close()
-		w = fh
-
-	} else {
-
-		// print to Stdout...
-		w = os.Stdout
-
-	}
-
-	if err := pem.Encode(w, block); err != nil {
-		return cli.NewExitError(err.Error(), bugCode)
-	}
-
-	return nil
-
+	privateKey interface{}
 }
 
-func generateKey(password []byte, keyType string, keyBits int, keyCurve int) (interface{}, error) {
+func (k *Keydgen) GenerateKey() (interface{}, error) {
 
-	var (
-		r = &systematic{
-			seed: password,
-			salt: password,
-		}
-		privKey interface{}
-	)
+	var deterministic = &Deterministic{
+		seed: k.Seed,
+		salt: k.Seed,
+	}
 
-	switch keyType {
+	switch k.Type {
 
 	case DSA:
 		var (
@@ -121,7 +56,7 @@ func generateKey(password []byte, keyType string, keyBits int, keyCurve int) (in
 			key    = new(dsa.PrivateKey)
 		)
 
-		switch keyBits {
+		switch k.Bits {
 		case 1024:
 			size = dsa.L1024N160
 		case 2048:
@@ -129,24 +64,22 @@ func generateKey(password []byte, keyType string, keyBits int, keyCurve int) (in
 		case 3072:
 			size = dsa.L3072N256
 		default:
-			return nil, errors.New("invalid key length")
+			return nil, ErrUnsupportedKeyLength
 		}
 
-		if err := dsa.GenerateParameters(params, r, size); err != nil {
+		if err := dsa.GenerateParameters(params, deterministic, size); err != nil {
 			return nil, err
 		}
 		key.Parameters = *params
 
-		if err := dsa.GenerateKey(key, r); err != nil {
+		if err := dsa.GenerateKey(key, deterministic); err != nil {
 			return nil, err
 		}
-		privKey = key
+		k.privateKey = key
 
 	case ECDSA:
 		var curve elliptic.Curve
-		switch keyCurve {
-		case 224:
-			curve = elliptic.P224()
+		switch k.Curve {
 		case 256:
 			curve = elliptic.P256()
 		case 384:
@@ -154,37 +87,50 @@ func generateKey(password []byte, keyType string, keyBits int, keyCurve int) (in
 		case 521:
 			curve = elliptic.P521()
 		default:
-			return nil, errors.New("invalid curve supplied")
+			return nil, ErrUnsuppontedCurve
 		}
-		key, err := ecdsa.GenerateKey(curve, r)
+		key, err := ecdsa.GenerateKey(curve, deterministic)
 		if err != nil {
 			return nil, err
 		}
-		privKey = key
-
-	case ED25519:
-		_, key, err := ed25519.GenerateKey(r)
-		if err != nil {
-			return nil, err
-		}
-		privKey = key
+		k.privateKey = key
 
 	case RSA:
-		key, err := rsa.GenerateKey(r, keyBits)
+		key, err := rsa.GenerateKey(deterministic, k.Bits)
 		if err != nil {
 			return nil, err
 		}
-		privKey = key
+		k.privateKey = key
+
+	case ED25519:
+		_, key, err := ed25519.GenerateKey(deterministic)
+		if err != nil {
+			return nil, err
+		}
+		k.privateKey = key
+
+	default:
+		return nil, ErrUnsupportedKeyType
 
 	}
 
-	return privKey, nil
+	return k.privateKey, nil
 
 }
 
-func generatePEMBlock(keyType string, privateKey interface{}) (block *pem.Block, err error) {
+func (k *Keydgen) MarshalPrivateKey() ([]byte, error) {
 
-	switch keyType {
+	if k.privateKey == nil {
+		panic("private key not hasn't been generated yet")
+	}
+
+	var (
+		block *pem.Block
+		buf   = bytes.NewBuffer(nil)
+		err   error
+	)
+
+	switch k.Type {
 
 	case DSA:
 		block = &pem.Block{Type: "DSA PRIVATE KEY"}
@@ -192,31 +138,75 @@ func generatePEMBlock(keyType string, privateKey interface{}) (block *pem.Block,
 			Version       int
 			P, Q, G, Y, X *big.Int
 		}{
-			P: privateKey.(*dsa.PrivateKey).P,
-			Q: privateKey.(*dsa.PrivateKey).Q,
-			G: privateKey.(*dsa.PrivateKey).G,
-			Y: privateKey.(*dsa.PrivateKey).Y,
-			X: privateKey.(*dsa.PrivateKey).X,
+			P: k.privateKey.(*dsa.PrivateKey).P,
+			Q: k.privateKey.(*dsa.PrivateKey).Q,
+			G: k.privateKey.(*dsa.PrivateKey).G,
+			Y: k.privateKey.(*dsa.PrivateKey).Y,
+			X: k.privateKey.(*dsa.PrivateKey).X,
 		})
 
 	case ECDSA:
 		block = &pem.Block{Type: "EC PRIVATE KEY"}
-		block.Bytes, err = x509.MarshalECPrivateKey(privateKey.(*ecdsa.PrivateKey))
-
-	case ED25519:
-		block = &pem.Block{
-			Type:  "OPENSSH PRIVATE KEY",
-			Bytes: privateKey.(ed25519.PrivateKey),
-		}
+		block.Bytes, err = x509.MarshalECPrivateKey(k.privateKey.(*ecdsa.PrivateKey))
 
 	case RSA:
 		block = &pem.Block{
 			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(privateKey.(*rsa.PrivateKey)),
+			Bytes: x509.MarshalPKCS1PrivateKey(k.privateKey.(*rsa.PrivateKey)),
 		}
+
+	case ED25519:
+		block = &pem.Block{
+			Type:  "OPENSSH PRIVATE KEY",
+			Bytes: k.privateKey.(ed25519.PrivateKey),
+		}
+
+	default:
+		return nil, ErrUnsupportedKeyType
 
 	}
 
-	return
+	if err := pem.Encode(buf, block); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), err
+
+}
+
+func (k *Keydgen) MarshalPublicKey() ([]byte, error) {
+
+	if k.privateKey == nil {
+		panic("private key not hasn't been generated yet")
+	}
+
+	var (
+		pubKey ssh.PublicKey
+		err    error
+	)
+
+	switch k.Type {
+
+	case DSA:
+		var pub = &k.privateKey.(*dsa.PrivateKey).PublicKey
+		pubKey, err = ssh.NewPublicKey(pub)
+
+	case ECDSA:
+		var pub = &k.privateKey.(*ecdsa.PrivateKey).PublicKey
+		pubKey, err = ssh.NewPublicKey(pub)
+
+	case RSA:
+		var pub = &k.privateKey.(*rsa.PrivateKey).PublicKey
+		pubKey, err = ssh.NewPublicKey(pub)
+
+	case ED25519:
+		pubKey, err = ssh.NewPublicKey(k.privateKey.(ed25519.PrivateKey).Public())
+
+	default:
+		err = ErrUnsupportedKeyType
+
+	}
+
+	return ssh.MarshalAuthorizedKey(pubKey), err
 
 }
