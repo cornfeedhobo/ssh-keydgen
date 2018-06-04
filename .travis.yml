@@ -1,13 +1,14 @@
 language: go
 
 go:
-  - 1.6
   - 1.7
   - 1.8
   - 1.9
 
+install: false
+
 script:
-  - go test -v ./...
+  - go test -v || travis_terminate 1
   - go get github.com/mitchellh/gox
   - CGO_ENABLED=0 gox -ldflags "-s" -rebuild
 
