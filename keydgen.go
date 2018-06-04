@@ -12,6 +12,7 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/mikesmitty/edkey"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh"
 )
@@ -40,81 +41,77 @@ type Keydgen struct {
 	privateKey interface{}
 }
 
-func (k *Keydgen) GenerateKey() (interface{}, error) {
+func (k *Keydgen) generateDSA(d *Deterministic, bits int) (interface{}, error) {
 
-	var deterministic = &Deterministic{
+	var (
+		size   dsa.ParameterSizes
+		params = new(dsa.Parameters)
+		key    = new(dsa.PrivateKey)
+	)
+
+	switch bits {
+	case 1024:
+		size = dsa.L1024N160
+	case 2048:
+		// we only offer the longer version of 2048
+		size = dsa.L2048N256
+	case 3072:
+		size = dsa.L3072N256
+	default:
+		return nil, ErrUnsupportedKeyLength
+	}
+
+	if err := dsa.GenerateParameters(params, d, size); err != nil {
+		return nil, err
+	}
+	key.Parameters = *params
+
+	err := dsa.GenerateKey(key, d)
+
+	return key, err
+
+}
+
+func (k *Keydgen) generateECDSA(d *Deterministic, curve int) (interface{}, error) {
+
+	var c elliptic.Curve
+
+	switch curve {
+	case 256:
+		c = elliptic.P256()
+	case 384:
+		c = elliptic.P384()
+	case 521:
+		c = elliptic.P521()
+	default:
+		return nil, ErrUnsuppontedCurve
+	}
+
+	return ecdsa.GenerateKey(c, d)
+
+}
+
+func (k *Keydgen) GenerateKey() (key interface{}, err error) {
+
+	var d = &Deterministic{
 		seed: k.Seed,
 		salt: k.Seed,
 	}
 
 	switch k.Type {
-
 	case DSA:
-		var (
-			size   dsa.ParameterSizes
-			params = new(dsa.Parameters)
-			key    = new(dsa.PrivateKey)
-		)
-
-		switch k.Bits {
-		case 1024:
-			size = dsa.L1024N160
-		case 2048:
-			size = dsa.L2048N256
-		case 3072:
-			size = dsa.L3072N256
-		default:
-			return nil, ErrUnsupportedKeyLength
-		}
-
-		if err := dsa.GenerateParameters(params, deterministic, size); err != nil {
-			return nil, err
-		}
-		key.Parameters = *params
-
-		if err := dsa.GenerateKey(key, deterministic); err != nil {
-			return nil, err
-		}
-		k.privateKey = key
-
+		k.privateKey, err = k.generateDSA(d, k.Bits)
 	case ECDSA:
-		var curve elliptic.Curve
-		switch k.Curve {
-		case 256:
-			curve = elliptic.P256()
-		case 384:
-			curve = elliptic.P384()
-		case 521:
-			curve = elliptic.P521()
-		default:
-			return nil, ErrUnsuppontedCurve
-		}
-		key, err := ecdsa.GenerateKey(curve, deterministic)
-		if err != nil {
-			return nil, err
-		}
-		k.privateKey = key
-
+		k.privateKey, err = k.generateECDSA(d, k.Curve)
 	case RSA:
-		key, err := rsa.GenerateKey(deterministic, k.Bits)
-		if err != nil {
-			return nil, err
-		}
-		k.privateKey = key
-
+		k.privateKey, err = rsa.GenerateKey(d, k.Bits)
 	case ED25519:
-		_, key, err := ed25519.GenerateKey(deterministic)
-		if err != nil {
-			return nil, err
-		}
-		k.privateKey = key
-
+		_, k.privateKey, err = ed25519.GenerateKey(d)
 	default:
 		return nil, ErrUnsupportedKeyType
-
 	}
 
-	return k.privateKey, nil
+	return k.privateKey, err
 
 }
 
@@ -158,7 +155,7 @@ func (k *Keydgen) MarshalPrivateKey() ([]byte, error) {
 	case ED25519:
 		block = &pem.Block{
 			Type:  "OPENSSH PRIVATE KEY",
-			Bytes: k.privateKey.(ed25519.PrivateKey),
+			Bytes: edkey.MarshalED25519PrivateKey(k.privateKey.(ed25519.PrivateKey)),
 		}
 
 	default:
@@ -177,7 +174,7 @@ func (k *Keydgen) MarshalPrivateKey() ([]byte, error) {
 func (k *Keydgen) MarshalPublicKey() ([]byte, error) {
 
 	if k.privateKey == nil {
-		panic("private key not hasn't been generated yet")
+		panic("private key has not been generated yet")
 	}
 
 	var (
@@ -200,7 +197,8 @@ func (k *Keydgen) MarshalPublicKey() ([]byte, error) {
 		pubKey, err = ssh.NewPublicKey(pub)
 
 	case ED25519:
-		pubKey, err = ssh.NewPublicKey(k.privateKey.(ed25519.PrivateKey).Public())
+		var pub = k.privateKey.(ed25519.PrivateKey).Public().(ed25519.PublicKey)
+		pubKey, err = ssh.NewPublicKey(pub)
 
 	default:
 		err = ErrUnsupportedKeyType

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
@@ -15,22 +15,25 @@ import (
 	"gopkg.in/urfave/cli.v1"
 )
 
-const (
-	errCode = 1
-	bugCode = 5
-)
+func newError(message string) error {
+	return cli.NewExitError(message, 1)
+}
+
+func newBug(message string) error {
+	return cli.NewExitError(message, 13)
+}
 
 func main() {
 	app := cli.NewApp()
 
 	app.Name = "ssh-keydgen"
-	app.Version = "0.2.0"
+	app.Version = "0.3.0"
 
 	app.Author = "cornfeedhobo"
-	app.Copyright = "(c) 2017 cornfeedhobo"
+	app.Copyright = "(c) 2018 cornfeedhobo"
 
 	app.HelpName = "ssh-keydgen"
-	app.Usage = "Deterministic authentication key generation"
+	app.Usage = "deterministic authentication key generation"
 
 	app.HideHelp = true
 	app.HideVersion = true
@@ -38,7 +41,7 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "t",
-			Value: "ed25519",
+			Value: "rsa",
 			Usage: "Specifies the `type` of key to create. The possible values are \"dsa\", \"ecdsa\", \"rsa\", or \"ed25519\".",
 		},
 		cli.IntFlag{
@@ -64,74 +67,53 @@ func main() {
 			Name:  "a",
 			Usage: "Add the generated key to the running ssh-agent.",
 		},
+		cli.StringFlag{
+			Name:  "w",
+			Usage: "Provides the deterministic `seed`",
+		},
 	}
 
 	app.Action = func(ctx *cli.Context) (err error) {
 
+		ctx.Set("t", strings.ToLower(ctx.String("t")))
+
 		if ctx.Bool("a") && os.Getenv("SSH_AUTH_SOCK") == "" {
-			return cli.NewExitError("SSH_AUTH_SOCK not set", errCode)
+			return newError("SSH_AUTH_SOCK not set")
+		}
+
+		fmt.Println("Generating public/private " + ctx.String("t") + " key pair")
+
+		var seedphrase []byte
+		if seedphrase, err = getSeedphrase(ctx); err != nil {
+			return
+		}
+
+		var filename string
+		if filename, err = getFilename(ctx); err != nil {
+			return
 		}
 
 		WorkFactor = ctx.Int("n")
 
 		var keydgen = &Keydgen{
+			Seed:  seedphrase,
 			Type:  KeyType(strings.ToLower(ctx.String("t"))),
 			Bits:  ctx.Int("b"),
 			Curve: ctx.Int("c"),
 		}
 
-		fmt.Println("Generating public/private " + keydgen.Type + " key pair")
-
-		// Get the output filename ...
-		if !ctx.Bool("a") && ctx.String("f") == "" {
-			filename, err := getFilename(keydgen.Type)
-			if err != nil {
-				return cli.NewExitError(err.Error(), bugCode)
-			}
-			if err := ctx.Set("f", filename); err != nil {
-				return cli.NewExitError(err.Error(), bugCode)
-			}
-		}
-
-		// Get the password ...
-		keydgen.Seed, err = getPassword()
-		if err != nil {
-			return cli.NewExitError(err.Error(), bugCode)
-		}
-
-		// Generate private key ...
 		privateKey, err := keydgen.GenerateKey()
 		if err != nil {
-			return cli.NewExitError(err.Error(), errCode)
+			return newError("Error generating key: " + err.Error())
 		}
 
-		if ctx.Bool("a") { // Add to running ssh-agent ...
-
-			if err := addToAgent(privateKey); err != nil {
-				return cli.NewExitError(err.Error(), errCode)
-			}
-
-		} else { // Write to file ...
-
-			privBytes, err := keydgen.MarshalPrivateKey()
-			if err != nil {
-				return cli.NewExitError(err.Error(), errCode)
-			}
-			if err := ioutil.WriteFile(ctx.String("f"), privBytes, 0600); err != nil {
-				return cli.NewExitError(err.Error(), errCode)
-			}
-
-			pubBytes, err := keydgen.MarshalPublicKey()
-			if err != nil {
-				return cli.NewExitError(err.Error(), errCode)
-			}
-			if err := ioutil.WriteFile(ctx.String("f")+".pub", pubBytes, 0600); err != nil {
-				return cli.NewExitError(err.Error(), errCode)
-			}
-
+		if ctx.Bool("a") {
+			err = addKeyToAgent(privateKey)
+		} else {
+			err = writeKeyToFile(keydgen, filename)
 		}
 
-		return nil
+		return
 
 	}
 
@@ -165,54 +147,123 @@ COPYRIGHT:
 `
 }
 
-func getFilename(keyType KeyType) (filename string, err error) {
+func getFilename(ctx *cli.Context) (filename string, err error) {
 
-	var home string
-	home, err = homedir.Dir()
+	filename = ctx.String("f")
+	if !ctx.Bool("a") && filename == "" {
+		var home string
+		home, err = homedir.Dir()
+		if err != nil {
+			err = newBug(err.Error())
+			return
+		}
+
+		fmt.Sprintf("Enter file in which to save the key (%s/.ssh/id_%s): ", home, ctx.String("t"))
+		if _, err = fmt.Scanln(&filename); err != nil {
+			return
+		}
+	}
+
+	abspath, err := filepath.Abs(filename)
 	if err != nil {
+		err = newError(err.Error())
 		return
 	}
 
-	fmt.Printf("Enter file in which to save the key (%s/.ssh/id_%s): ", home, keyType)
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		filename = scanner.Text()
-		break
+	_, privStatErr := os.Stat(abspath)
+	_, pubStatErr := os.Stat(abspath + ".pub")
+	if privStatErr == nil || pubStatErr == nil {
+
+		var strbool string
+		fmt.Println(filename + " already exists.")
+		fmt.Print("Overwrite (y/n)? ")
+		if _, err = fmt.Scanln(&strbool); err != nil {
+			return
+		}
+
+		if strings.TrimSpace(strings.ToLower(strbool)) == "y" {
+
+			err = os.Remove(abspath)
+			if err != nil && !os.IsNotExist(err) {
+				return
+			}
+
+			err = os.Remove(abspath + ".pub")
+			if err != nil && !os.IsNotExist(err) {
+				return
+			}
+
+		} else {
+			err = newError("")
+		}
 	}
-	err = scanner.Err()
 
 	return
 
 }
 
-func getPassword() (password []byte, err error) {
+func getSeedphrase(ctx *cli.Context) (seed []byte, err error) {
 
-	// handle piped in password
 	stat, _ := os.Stdin.Stat()
-	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		return ioutil.ReadAll(os.Stdin)
-	}
 
-	// handle prompting
-	fmt.Print("Enter passphrase: ")
-	password, err = terminal.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Print("\n")
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+
+		seed, err = ioutil.ReadAll(os.Stdin)
+
+	} else {
+
+		seed = []byte(ctx.String("w"))
+		for len(seed) == 0 {
+			fmt.Print("Enter seedphrase (can not be empty): ")
+			seed, err = terminal.ReadPassword(int(os.Stdin.Fd()))
+			fmt.Print("\n")
+			if err != nil {
+				break
+			}
+		}
+
+	}
 
 	return
 
 }
 
-func addToAgent(privateKey interface{}) error {
+func addKeyToAgent(privateKey interface{}) error {
 
 	conn, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
 	if err != nil {
 		return err
 	}
 
-	if k, ok := privateKey.(ed25519.PrivateKey); ok { // because client.Add() requires a pointer for all types
+	// because client.Add() requires a pointer for all types
+	if k, ok := privateKey.(ed25519.PrivateKey); ok {
 		privateKey = &k
 	}
 
 	return agent.NewClient(conn).Add(agent.AddedKey{PrivateKey: privateKey})
+
+}
+
+func writeKeyToFile(k *Keydgen, filename string) error {
+
+	privBytes, err := k.MarshalPrivateKey()
+	if err != nil {
+		return newError(err.Error())
+	}
+
+	pubBytes, err := k.MarshalPublicKey()
+	if err != nil {
+		return newError(err.Error())
+	}
+
+	if err := ioutil.WriteFile(filename, privBytes, 0600); err != nil {
+		return newError(err.Error())
+	}
+
+	if err := ioutil.WriteFile(filename+".pub", pubBytes, 0600); err != nil {
+		return newError(err.Error())
+	}
+
+	return nil
 
 }

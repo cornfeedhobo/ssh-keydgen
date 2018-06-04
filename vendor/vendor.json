@@ -3,6 +3,30 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "HmbftipkadrLlCfzzVQ+iFHbl6g=",
+			"path": "github.com/golang/glog",
+			"revision": "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
+			"revisionTime": "2016-01-25T20:49:56Z"
+		},
+		{
+			"checksumSHA1": "8Az5MSRVLmj0LEVxF3jSefstZSs=",
+			"path": "github.com/google/goexpect",
+			"revision": "756071476d4175eed2d146a607574a92063d1f58",
+			"revisionTime": "2017-11-14T05:01:13Z"
+		},
+		{
+			"checksumSHA1": "3ZLbGgU690TfWppmiK+icivnOyI=",
+			"path": "github.com/google/goterm/term",
+			"revision": "70e1c263818522aa1ecbdd34d7e143639d447ced",
+			"revisionTime": "2018-05-11T02:58:05Z"
+		},
+		{
+			"checksumSHA1": "lafP5ecnlvfzv3oYf63Ibhcl8As=",
+			"path": "github.com/mikesmitty/edkey",
+			"revision": "3356ea4e686a1d47ae5d2d4c3cbc1832ce2df626",
+			"revisionTime": "2017-02-22T07:25:05Z"
+		},
+		{
 			"checksumSHA1": "V/quM7+em2ByJbWBLOsEwnY3j/Q=",
 			"path": "github.com/mitchellh/go-homedir",
 			"revision": "b8bc1bf767474819792c23f32d8286a45736f1c6",
@@ -73,6 +97,12 @@
 			"path": "golang.org/x/sys/windows",
 			"revision": "1e2299c37cc91a509f1b12369872d27be0ce98a6",
 			"revisionTime": "2017-11-09T13:50:42Z"
+		},
+		{
+			"checksumSHA1": "R3tuACGAPyK4lr+oSNt1saUzC0M=",
+			"path": "google.golang.org/grpc/codes",
+			"revision": "130c87fa0d80a54981a03665782970fd73bc5de8",
+			"revisionTime": "2018-06-01T22:33:31Z"
 		},
 		{
 			"checksumSHA1": "Yx1MU40fyGe7hhqW9+dkv8kXa60=",
