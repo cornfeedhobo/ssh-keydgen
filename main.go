@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cornfeedhobo/ssh-keydgen/deterministic"
+	"github.com/cornfeedhobo/ssh-keydgen/keydgen"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh/agent"
@@ -27,13 +29,14 @@ func main() {
 	app := cli.NewApp()
 
 	app.Name = "ssh-keydgen"
-	app.Version = "0.3.0"
+	app.Version = "0.4.0"
 
 	app.Author = "cornfeedhobo"
 	app.Copyright = "(c) 2018 cornfeedhobo"
 
 	app.HelpName = "ssh-keydgen"
 	app.Usage = "deterministic authentication key generation"
+	app.UsageText = "ssh-keydgen [-t <type>] [-b <bits>] [-c <curve>] [-f <filename>] [-a <rounds>] [--at <time>] [--am <memory>] [--as <seedphrase>] [--aa]"
 
 	app.HideHelp = true
 	app.HideVersion = true
@@ -54,103 +57,96 @@ func main() {
 			Value: 256,
 			Usage: "Specifies the elliptic `curve` to use. The possible values are 256, 384, or 521.",
 		},
-		cli.IntFlag{
-			Name:  "n",
-			Value: 16384,
-			Usage: "Specifies the work `factor`, or \"difficulty\", applied to the key generation function.",
-		},
 		cli.StringFlag{
 			Name:  "f",
 			Usage: "Specifies the `filename` of the key file.",
 		},
-		cli.BoolFlag{
+		cli.IntFlag{
 			Name:  "a",
-			Usage: "Add the generated key to the running ssh-agent.",
+			Value: 1000,
+			Usage: "Specifies the number of hashing `rounds` applied during key generation.",
+		},
+		cli.UintFlag{
+			Name:  "at",
+			Value: 3,
+			Usage: "Specifies the `time` parameter for the Argon2ti function.",
+		},
+		cli.UintFlag{
+			Name:  "am",
+			Value: 1024 * 16,
+			Usage: "Specifies the `memory` parameter for the Argon2ti function.",
+		},
+		cli.UintFlag{
+			Name:  "ap",
+			Value: 1,
+			Usage: "Specifies the `threads` or parallelism for the Argon2ti function.",
 		},
 		cli.StringFlag{
-			Name:  "w",
-			Usage: "Provides the deterministic `seed`",
+			Name:  "as",
+			Usage: "Provides the deterministic `seedphrase`.",
+		},
+		cli.BoolFlag{
+			Name:  "aa",
+			Usage: "Add the generated key to the running ssh-agent.",
 		},
 	}
 
-	app.Action = func(ctx *cli.Context) (err error) {
-
-		ctx.Set("t", strings.ToLower(ctx.String("t")))
-
-		if ctx.Bool("a") && os.Getenv("SSH_AUTH_SOCK") == "" {
-			return newError("SSH_AUTH_SOCK not set")
-		}
-
-		fmt.Println("Generating public/private " + ctx.String("t") + " key pair")
-
-		var seedphrase []byte
-		if seedphrase, err = getSeedphrase(ctx); err != nil {
-			return
-		}
-
-		var filename string
-		if filename, err = getFilename(ctx); err != nil {
-			return
-		}
-
-		WorkFactor = ctx.Int("n")
-
-		var keydgen = &Keydgen{
-			Seed:  seedphrase,
-			Type:  KeyType(strings.ToLower(ctx.String("t"))),
-			Bits:  ctx.Int("b"),
-			Curve: ctx.Int("c"),
-		}
-
-		privateKey, err := keydgen.GenerateKey()
-		if err != nil {
-			return newError("Error generating key: " + err.Error())
-		}
-
-		if ctx.Bool("a") {
-			err = addKeyToAgent(privateKey)
-		} else {
-			err = writeKeyToFile(keydgen, filename)
-		}
-
-		return
-
-	}
+	app.Action = appAction
 
 	app.Run(os.Args)
 
 }
 
-func init() {
-	cli.AppHelpTemplate = `NAME:
-   {{.Name}}{{if .Usage}} - {{.Usage}}{{end}}
+func appAction(ctx *cli.Context) (err error) {
 
-USAGE:
-   {{if .UsageText}}{{.UsageText}}{{else}}{{.HelpName}}{{if .VisibleFlags}}{{range $index, $option := .VisibleFlags}}{{if $index}}{{end}} [-{{$option.GetName}}]{{end}}{{end}}{{end}}{{if .Version}}{{if not .HideVersion}}
+	ctx.Set("t", strings.ToLower(ctx.String("t")))
 
-VERSION:
-   {{.Version}}{{end}}{{end}}{{if .Description}}
+	if ctx.Bool("aa") && os.Getenv("SSH_AUTH_SOCK") == "" {
+		return newError("SSH_AUTH_SOCK not set, unable to find running agent")
+	}
 
-DESCRIPTION:
-   {{.Description}}{{end}}{{if len .Authors}}
+	fmt.Println("Generating public/private " + ctx.String("t") + " key pair")
 
-AUTHOR{{with $length := len .Authors}}{{if ne 1 $length}}S{{end}}{{end}}:
-   {{range $index, $author := .Authors}}{{if $index}}
-   {{end}}{{$author}}{{end}}{{end}}{{if .VisibleFlags}}
+	var seedphrase []byte
+	if seedphrase, err = getSeedphrase(ctx); err != nil {
+		return
+	}
 
-OPTIONS:
-   {{range $index, $option := .VisibleFlags}}{{if $index}}
-   {{end}}{{$option}}{{end}}{{end}}{{if .Copyright}}
+	var filename string
+	if filename, err = getFilename(ctx); err != nil {
+		return
+	}
 
-COPYRIGHT:
-   {{.Copyright}}{{end}}
-`
+	var keydgen = &keydgen.Keydgen{
+		Type:  ctx.String("t"),
+		Bits:  uint16(ctx.Int("b")),
+		Curve: uint16(ctx.Int("c")),
+	}
+
+	rand, err := deterministic.New(seedphrase, seedphrase, uint32(ctx.Int("a")), uint32(ctx.Uint("at")), uint32(ctx.Uint("am")), uint8(ctx.Uint("ap")))
+	if err != nil {
+		return newError("Error with supplied parameters: " + err.Error())
+	}
+
+	privateKey, err := keydgen.GenerateKey(rand)
+	if err != nil {
+		return newError("Error generating key: " + err.Error())
+	}
+
+	if ctx.Bool("aa") {
+		err = addKeyToAgent(privateKey)
+	} else {
+		err = writeKeyToFile(keydgen, filename)
+	}
+
+	return
+
 }
 
 func getFilename(ctx *cli.Context) (filename string, err error) {
 
 	filename = ctx.String("f")
-	if !ctx.Bool("a") && filename == "" {
+	if !ctx.Bool("aa") && filename == "" {
 		var home string
 		home, err = homedir.Dir()
 		if err != nil {
@@ -158,7 +154,7 @@ func getFilename(ctx *cli.Context) (filename string, err error) {
 			return
 		}
 
-		fmt.Sprintf("Enter file in which to save the key (%s/.ssh/id_%s): ", home, ctx.String("t"))
+		fmt.Printf("Enter file in which to save the key (%s/.ssh/id_%s): ", home, ctx.String("t"))
 		if _, err = fmt.Scanln(&filename); err != nil {
 			return
 		}
@@ -212,7 +208,7 @@ func getSeedphrase(ctx *cli.Context) (seed []byte, err error) {
 
 	} else {
 
-		seed = []byte(ctx.String("w"))
+		seed = []byte(ctx.String("as"))
 		for len(seed) == 0 {
 			fmt.Print("Enter seedphrase (can not be empty): ")
 			seed, err = terminal.ReadPassword(int(os.Stdin.Fd()))
@@ -235,7 +231,7 @@ func addKeyToAgent(privateKey interface{}) error {
 		return err
 	}
 
-	// because client.Add() requires a pointer for all types
+	// because agent.Client.Add() requires a pointer for all types
 	if k, ok := privateKey.(ed25519.PrivateKey); ok {
 		privateKey = &k
 	}
@@ -244,7 +240,7 @@ func addKeyToAgent(privateKey interface{}) error {
 
 }
 
-func writeKeyToFile(k *Keydgen, filename string) error {
+func writeKeyToFile(k *keydgen.Keydgen, filename string) error {
 
 	privBytes, err := k.MarshalPrivateKey()
 	if err != nil {
@@ -256,11 +252,13 @@ func writeKeyToFile(k *Keydgen, filename string) error {
 		return newError(err.Error())
 	}
 
-	if err := ioutil.WriteFile(filename, privBytes, 0600); err != nil {
+	err = ioutil.WriteFile(filename, privBytes, 0600)
+	if err != nil {
 		return newError(err.Error())
 	}
 
-	if err := ioutil.WriteFile(filename+".pub", pubBytes, 0600); err != nil {
+	err = ioutil.WriteFile(filename+".pub", pubBytes, 0600)
+	if err != nil {
 		return newError(err.Error())
 	}
 

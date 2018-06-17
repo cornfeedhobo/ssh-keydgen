@@ -8,19 +8,22 @@ NAME:
    ssh-keydgen - deterministic authentication key generation
 
 USAGE:
-   ssh-keydgen [-t] [-b] [-c] [-n] [-f] [-a] [-w]
+   ssh-keydgen [-t <type>] [-b <bits>] [-c <curve>] [-f <filename>] [-a <rounds>] [--at <time>] [--am <memory>] [--as <seedphrase>] [--aa]
 
 AUTHOR:
    cornfeedhobo
 
-OPTIONS:
-   -t type      Specifies the type of key to create. The possible values are "dsa", "ecdsa", "rsa", or "ed25519". (default: "ed25519")
-   -b bits      Specifies the number of bits in the key to create. Possible values are restricted by key type. (default: 2048)
-   -c curve     Specifies the elliptic curve to use. The possible values are 256, 384, or 521. (default: 256)
-   -n factor    Specifies the work factor, or "difficulty", applied to the key generation function. (default: 16384)
-   -f filename  Specifies the filename of the key file.
-   -a           Add the generated key to the running ssh-agent.
-   -w seed      Provides the deterministic seed
+GLOBAL OPTIONS:
+   -t type          Specifies the type of key to create. The possible values are "dsa", "ecdsa", "rsa", or "ed25519". (default: "rsa")
+   -b bits          Specifies the number of bits in the key to create. Possible values are restricted by key type. (default: 2048)
+   -c curve         Specifies the elliptic curve to use. The possible values are 256, 384, or 521. (default: 256)
+   -f filename      Specifies the filename of the key file.
+   -a rounds        Specifies the number of hashing rounds applied during key generation. (default: 1000)
+   --at time        Specifies the time parameter for the Argon2ti function. (default: 3)
+   --am memory      Specifies the memory parameter for the Argon2ti function. (default: 16384)
+   --ap threads     Specifies the threads or parallelism for the Argon2ti function. (default: 1)
+   --as seedphrase  Provides the deterministic seedphrase.
+   --aa             Add the generated key to the running ssh-agent.
 
 COPYRIGHT:
    (c) 2018 cornfeedhobo

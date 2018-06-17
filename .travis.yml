@@ -4,6 +4,7 @@ go:
   - 1.7
   - 1.8
   - 1.9
+  - 1.10
 
 install: false
 
@@ -15,7 +16,7 @@ script:
 deploy:
   on:
     tags: true
-    go: 1.9
+    go: 1.10
   provider: releases
   api_key:
     secure: Fo3WhmhJB+gZ0wvUybQytg+tTcBnpCkafifnmOUj74zAbXbCnhoomIc9QhfNJciyrDV7bbVQCH9KmPiHP1bv/d6BE6Ft19hPtwdfreJ31TjuXEki0/WjH4iStv95AVhonxChMt4Whr96G0qPnEkmjF1+CurPA3v7FrqbAoYFrruO57I4uIIrHQYbW8N1fusX4AI4LgHqqJ5Kw5XHLvOqWd+ZsNd9t1O6rm49N7My3/xjYrG2T5uw/cycwIxFWYMD6joVNQ0r0DdPsjARkgKDqUZ0H9sbCem7FF/FnQN7bemJ5yiZKNnv5WBfOIpoh42fQFSnPyRLiIN8DQ+PualtEu4Y5Vn5xg80n9hcIV8wN9O8y8dGTd0vWnHpZaeHJ7mhBamahj5tHW7X444pLDPQTg6JYTI2javPj4hs4GpNnnieVkofVoTBsH3JxcxuSlLgNJ9dTZJFMF9wLDOfT9VSyAYpMx5GACLpoKFsVvWYbi9ZmjWtmJQfIas7DBOaWsLlimgb7Kk8Eh+CjaGPRWmvss+GwU2gbGBwQLWU/gZZabl8Y/E+aoL/UWziuv/X4fe0DHPHG6a3zviVVkkCuF6JxqfOf+8YU2zgdJqdPOwzQccMwTngvs+VMZ+7uXvJSg+COSDCziBSnnVEU7Spx8egzhabkJAGsFnvsKtDrkpEjpE=
