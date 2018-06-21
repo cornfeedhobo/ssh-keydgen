@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cornfeedhobo/ssh-keydgen/deterministic"
-	"github.com/cornfeedhobo/ssh-keydgen/keydgen"
+	"github.com/cornfeedhobo/ssh-keydgen/keygen"
+	"github.com/cornfeedhobo/ssh-keydgen/slowseeder"
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh/agent"
@@ -28,15 +28,15 @@ func newBug(message string) error {
 func main() {
 	app := cli.NewApp()
 
-	app.Name = "ssh-keydgen"
+	app.Name = "ssh-keygen"
 	app.Version = "0.4.0"
 
 	app.Author = "cornfeedhobo"
 	app.Copyright = "(c) 2018 cornfeedhobo"
 
-	app.HelpName = "ssh-keydgen"
+	app.HelpName = "ssh-keygen"
 	app.Usage = "deterministic authentication key generation"
-	app.UsageText = "ssh-keydgen [-t <type>] [-b <bits>] [-c <curve>] [-f <filename>] [-a <rounds>] [--at <time>] [--am <memory>] [--as <seedphrase>] [--aa]"
+	app.UsageText = "ssh-keygen [-t <type>] [-b <bits>] [-c <curve>] [-f <filename>] [-a <rounds>] [--at <time>] [--am <memory>] [--as <seedphrase>] [--aa]"
 
 	app.HideHelp = true
 	app.HideVersion = true
@@ -117,13 +117,13 @@ func appAction(ctx *cli.Context) (err error) {
 		return
 	}
 
-	var keydgen = &keydgen.Keydgen{
+	var keydgen = &keygen.Keydgen{
 		Type:  ctx.String("t"),
 		Bits:  uint16(ctx.Int("b")),
 		Curve: uint16(ctx.Int("c")),
 	}
 
-	rand, err := deterministic.New(seedphrase, seedphrase, uint32(ctx.Int("a")), uint32(ctx.Uint("at")), uint32(ctx.Uint("am")), uint8(ctx.Uint("ap")))
+	rand, err := slowseeder.New(seedphrase, uint32(ctx.Int("a")), uint32(ctx.Uint("at")), uint32(ctx.Uint("am")), uint8(ctx.Uint("ap")))
 	if err != nil {
 		return newError("Error with supplied parameters: " + err.Error())
 	}
@@ -240,7 +240,7 @@ func addKeyToAgent(privateKey interface{}) error {
 
 }
 
-func writeKeyToFile(k *keydgen.Keydgen, filename string) error {
+func writeKeyToFile(k *keygen.Keydgen, filename string) error {
 
 	privBytes, err := k.MarshalPrivateKey()
 	if err != nil {

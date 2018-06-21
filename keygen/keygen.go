@@ -1,4 +1,5 @@
-package keydgen
+// Package keygen package is a single entry point for generating OpenSSH keys
+package keygen
 
 import (
 	"bytes"
@@ -37,16 +38,11 @@ var (
 	ErrUnsuppontedCurve = errors.New("only P-256, P-384 and P-521 EC keys are supported")
 )
 
-// Keydgen represents a deterministic OpenSSH key generator
+// Keydgen represents an OpenSSH key generator
 type Keydgen struct {
 	Type  string
 	Bits  uint16
 	Curve uint16
-	//Seed  []byte
-	//Rounds  uint32
-	//Time    uint32
-	//Memory  uint32
-	//Threads uint8
 
 	privateKey interface{}
 }

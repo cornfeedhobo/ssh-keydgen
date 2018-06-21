@@ -1,6 +1,6 @@
-* Sun Jun 17 2018 cornfeedhobo 0.4.0
-- remove the use of expect in testing
-- switch to argon2ti and use pbkdf2 for seed and salt derivation
+* Thu Jun 21 2018 cornfeedhobo 0.4.0
+- switch to argon2 and use pbkdf2 for seed and salt derivation
+- refactor and add documentation
 
 * Mon Jun 4 2018 cornfeedhobo 0.3.0
 - Add ssh-keygen test to validate output

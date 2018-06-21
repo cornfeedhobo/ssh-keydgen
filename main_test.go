@@ -2,166 +2,130 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"path/filepath"
-
-	"github.com/cornfeedhobo/ssh-keydgen/deterministic"
-	"github.com/cornfeedhobo/ssh-keydgen/keydgen"
+	"github.com/cornfeedhobo/ssh-keydgen/keygen"
+	"github.com/cornfeedhobo/ssh-keydgen/slowseeder"
 )
-
-func assertSshKeygen(k *keydgen.Keydgen) error {
-
-	privBytes, err := k.MarshalPrivateKey()
-	if err != nil {
-		return err
-	}
-
-	pubBytes, err := k.MarshalPublicKey()
-	if err != nil {
-		return err
-	}
-
-	filename := fmt.Sprintf("keydgen_test_%s_", k.Type)
-	switch k.Type {
-	case keydgen.RSA, keydgen.DSA:
-		filename += fmt.Sprintf("%d_", k.Bits)
-	case keydgen.ECDSA:
-		filename += fmt.Sprintf("%d_", k.Curve)
-	}
-
-	filename, err = filepath.Abs(filename)
-	if err != nil {
-		return err
-	}
-
-	if err := writeKeyToFile(k, filename); err != nil {
-		return err
-	}
-
-	cmd := exec.Command("ssh-keygen", "-y", "-f", filename)
-	outPipe, _ := cmd.StdoutPipe()
-	errPipe, _ := cmd.StderrPipe()
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	stdout, _ := ioutil.ReadAll(outPipe)
-	stderr, _ := ioutil.ReadAll(errPipe)
-
-	if !bytes.Equal(pubBytes, stdout) {
-		msg := "Unable to verify generated public key with ssh-keygen"
-		msg += "\n\nGenerated Private Key:\n" + string(privBytes)
-		msg += "\n\nGenerated Public Key:\n" + string(pubBytes)
-		msg += "\n\nStdout:\n" + string(stdout)
-		msg += "\n\nStderr:\n" + string(stderr)
-		return errors.New(msg)
-	}
-
-	os.Remove(filename)
-	os.Remove(filename + ".pub")
-
-	return nil
-}
 
 func TestKeydgen(t *testing.T) {
 
-	cases := []struct {
-		name string
-		fail bool
-		k    *keydgen.Keydgen
-	}{
+	cases := []*keygen.Keydgen{
 		{
-			name: "DSA_1024",
-			k: &keydgen.Keydgen{
-				Type: keydgen.DSA,
-				Bits: 1024,
-			},
+			Type: keygen.ED25519,
 		},
 		{
-			name: "DSA_2048",
-			k: &keydgen.Keydgen{
-				Type: keydgen.DSA,
-				Bits: 2048,
-			},
+			Type:  keygen.ECDSA,
+			Curve: 256,
 		},
 		{
-			name: "DSA_3072",
-			k: &keydgen.Keydgen{
-				Type: keydgen.DSA,
-				Bits: 3072,
-			},
-		},
-		// ECDSA
-		{
-			name: "ECDSA_256",
-			k: &keydgen.Keydgen{
-				Type:  keydgen.ECDSA,
-				Curve: 256,
-			},
+			Type:  keygen.ECDSA,
+			Curve: 384,
 		},
 		{
-			name: "ECDSA_384",
-			k: &keydgen.Keydgen{
-				Type:  keydgen.ECDSA,
-				Curve: 384,
-			},
+			Type:  keygen.ECDSA,
+			Curve: 521,
 		},
 		{
-			name: "ECDSA_521",
-			k: &keydgen.Keydgen{
-				Type:  keydgen.ECDSA,
-				Curve: 521,
-			},
+			Type: keygen.RSA,
+			Bits: 2048,
 		},
-		// RSA
 		{
-			name: "RSA_2048",
-			k: &keydgen.Keydgen{
-				Type: keydgen.RSA,
-				Bits: 2048,
-			},
+			Type: keygen.RSA,
+			Bits: 4096,
 		},
-		// ED25519
 		{
-			name: "ED25519",
-			k: &keydgen.Keydgen{
-				Type: keydgen.ED25519,
-			},
+			Type: keygen.DSA,
+			Bits: 1024,
+		},
+		{
+			Type: keygen.DSA,
+			Bits: 2048,
+		},
+		{
+			Type: keygen.DSA,
+			Bits: 3072,
 		},
 	}
 
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
+	for _, k := range cases {
 
-			var (
-				reads int
-				start = time.Now()
-				seed  = []byte("keydgen")
-			)
+		var name = k.Type
+		switch k.Type {
+		case keygen.RSA, keygen.DSA:
+			name += fmt.Sprintf("_%d", k.Bits)
+		case keygen.ECDSA:
+			name += fmt.Sprintf("_%d", k.Curve)
+		}
+
+		t.Run(name, func(t *testing.T) {
+
+			fmt.Print(name)
+			start := time.Now()
 
 			// use small parameters to keep tests short
-			r, err := deterministic.New(seed, seed, 1, 1, 1024, 1)
+			d, err := slowseeder.New([]byte("keygen"), 1, 1, 512, 1)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			fmt.Print(c.name)
-			if _, err := c.k.GenerateKey(r); err != nil && !c.fail {
+			_, err = k.GenerateKey(d)
+			if err != nil {
 				t.Fatal(err)
-			} else if !c.fail {
-				if err = assertSshKeygen(c.k); err != nil {
-					t.Fatal(err)
-				}
-				reads = r.Reads()
 			}
-			fmt.Printf(" PASS %s with %d reads\n", time.Since(start), reads)
+
+			privBytes, err := k.MarshalPrivateKey()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			pubBytes, err := k.MarshalPublicKey()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			filename, err := filepath.Abs(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = writeKeyToFile(k, filename)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			cmd := exec.Command("ssh-keygen", "-y", "-f", filename)
+			outPipe, _ := cmd.StdoutPipe()
+			errPipe, _ := cmd.StderrPipe()
+			err = cmd.Start()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			stdout, _ := ioutil.ReadAll(outPipe)
+			stderr, _ := ioutil.ReadAll(errPipe)
+
+			if !bytes.Equal(pubBytes, stdout) {
+				msg := "Unable to verify generated public key with ssh-keygen"
+				msg += "\n\nGenerated Private Key:\n" + string(privBytes)
+				msg += "\n\nGenerated Public Key:\n" + string(pubBytes)
+				msg += "\n\nStdout:\n" + string(stdout)
+				msg += "\n\nStderr:\n" + string(stderr)
+				t.Fatal(msg)
+			}
+
+			// don't defer in case inspection needs to be done with a failure
+			os.Remove(filename)
+			os.Remove(filename + ".pub")
+
+			fmt.Printf(" PASS %s\n", time.Since(start))
+
 		})
 	}
 }
