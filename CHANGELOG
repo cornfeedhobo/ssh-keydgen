@@ -1,3 +1,10 @@
+* Thu Jun 21 2018 cornfeedhobo 0.4.0
+- switch to argon2 and use pbkdf2 for seed and salt derivation
+- refactor and add documentation
+
+* Mon Jun 4 2018 cornfeedhobo 0.3.0
+- Add ssh-keygen test to validate output
+
 * Mon Nov 20 2017 cornfeedhobo 0.2.0
 - Refactor key management to a struct-based approach
 - Drop printing to stdout and switch to writing files like OpenSSH's ssh-keygen

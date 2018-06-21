@@ -1,4 +1,4 @@
-ssh-keydgen [![Travis](https://img.shields.io/travis/cornfeedhobo/ssh-keydgen.svg)]() [![Github All Releases](https://img.shields.io/github/downloads/cornfeedhobo/ssh-keydgen/total.svg)]()
+ssh-keydgen [![Go Report Card](https://goreportcard.com/badge/github.com/cornfeedhobo/ssh-keydgen)](https://goreportcard.com/report/github.com/cornfeedhobo/ssh-keydgen) [![Build Status](https://travis-ci.org/cornfeedhobo/ssh-keydgen.svg?branch=master)](https://travis-ci.org/cornfeedhobo/ssh-keydgen) [![Github All Releases](https://img.shields.io/github/downloads/cornfeedhobo/ssh-keydgen/total.svg)](https://github.com/cornfeedhobo/ssh-keydgen/releases)
 ===========
 
 Generate _Deterministic_ SSH keys
@@ -8,19 +8,22 @@ NAME:
    ssh-keydgen - deterministic authentication key generation
 
 USAGE:
-   ssh-keydgen [-t] [-b] [-c] [-n] [-f] [-a] [-w]
+   ssh-keydgen [[-t <type>] [-b <bits>] [-c <curve>] [-f <filename>] [-a <rounds>] [--at <time>] [--am <memory>] [--as <seedphrase>] [--aa]]
 
 AUTHOR:
    cornfeedhobo
 
-OPTIONS:
-   -t type      Specifies the type of key to create. The possible values are "dsa", "ecdsa", "rsa", or "ed25519". (default: "ed25519")
-   -b bits      Specifies the number of bits in the key to create. Possible values are restricted by key type. (default: 2048)
-   -c curve     Specifies the elliptic curve to use. The possible values are 256, 384, or 521. (default: 256)
-   -n factor    Specifies the work factor, or "difficulty", applied to the key generation function. (default: 16384)
-   -f filename  Specifies the filename of the key file.
-   -a           Add the generated key to the running ssh-agent.
-   -w seed      Provides the deterministic seed
+GLOBAL OPTIONS:
+   -t type          Specifies the type of key to create. The possible values are "dsa", "ecdsa", "rsa", or "ed25519". (default: "rsa")
+   -b bits          Specifies the number of bits in the key to create. Possible values are restricted by key type. (default: 2048)
+   -c curve         Specifies the elliptic curve to use. The possible values are 256, 384, or 521. (default: 256)
+   -f filename      Specifies the filename of the key file.
+   -a rounds        Specifies the number of hashing rounds applied during key generation. (default: 1000)
+   --at time        Specifies the time parameter for the Argon2 function. (default: 3)
+   --am memory      Specifies the memory parameter for the Argon2 function. (default: 16384)
+   --ap threads     Specifies the threads or parallelism for the Argon2 function. (default: 1)
+   --as seedphrase  Provides the deterministic seedphrase.
+   --aa             Add the generated key to the running ssh-agent.
 
 COPYRIGHT:
    (c) 2018 cornfeedhobo
@@ -41,7 +44,7 @@ COPYRIGHT:
    _If_ the time comes where you need access but can't get to your keys, you can then obtain this
    utility and re-generate, or even directly add your key to a running `ssh-agent`.
    ```bash
-   keydgen -a
+   ssh-keydgen --aa
    ```
    
 3) Profit!
