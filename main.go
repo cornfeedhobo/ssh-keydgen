@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -208,14 +209,38 @@ func getSeedphrase(ctx *cli.Context) (seed []byte, err error) {
 
 	} else {
 
-		seed = []byte(ctx.String("as"))
-		for len(seed) == 0 {
-			fmt.Print("Enter seedphrase (can not be empty): ")
-			seed, err = terminal.ReadPassword(int(os.Stdin.Fd()))
-			fmt.Print("\n")
-			if err != nil {
-				break
+		var (
+			equal bool
+			fd    = int(os.Stdin.Fd())
+		)
+
+		for !equal {
+
+			seed = []byte(ctx.String("as"))
+			for len(seed) == 0 {
+				fmt.Print("Enter seedphrase (can not be empty): ")
+				seed, err = terminal.ReadPassword(fd)
+				fmt.Print("\n")
+				if err != nil {
+					break
+				}
 			}
+
+			verify := []byte(ctx.String("as"))
+			for len(verify) == 0 {
+				fmt.Print("Verify seedphrase (can not be empty): ")
+				verify, err = terminal.ReadPassword(fd)
+				fmt.Print("\n")
+				if err != nil {
+					break
+				}
+			}
+
+			equal = bytes.Equal(seed, verify)
+			if !equal {
+				fmt.Print("\nerror: seedphrases did not match\n\n")
+			}
+
 		}
 
 	}
