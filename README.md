@@ -34,23 +34,55 @@ COPYRIGHT:
 ## Usage
 
 1) Generate your keys
+
    ```bash
-   keydgen -f deterministic_key
-   ls -lh deterministic_key*
+   keydgen -f path/to/deterministic_key
+   ls -lh path/to/deterministic_key*
    ```
-   
+
 2) Allow time to pass, hoping an emergency does not arise when you have no access to your keys ...
-   
+
    _If_ the time comes where you need access but can't get to your keys, you can then obtain this
    utility and re-generate, or even directly add your key to a running `ssh-agent`.
+
    ```bash
    ssh-keydgen --aa
    ```
-   
+
 3) Profit!
+
+
+
+## FAQ
+
+### What Go versions are supported?
+
+Go 1.9 or later
+
+
+### How can I verify the generated key is valid?
+
+Until there are more implementations of this generation scheme, you can
+at least verify the private key is usable and the public key matches what
+openssh generates.
+
+```bash
+cat path/to/deterministic_key.pub
+ssh-keygen -y -f path/to/deterministic_key
+```
+
+If the above outputs don't match, the public key was not generated properly.
+If you are prompted for a password, the private key was not generated properly.
+
+
+### How can I encrypt my key after generation?
+
+```bash
+ssh-keygen -p -f path/to/deterministic_key
+```
 
 
 
 ## Is it any good?
 
- [Yes](http://news.ycombinator.com/item?id=3067434)
+[Yes](http://news.ycombinator.com/item?id=3067434)
