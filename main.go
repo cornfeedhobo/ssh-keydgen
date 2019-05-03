@@ -29,15 +29,15 @@ func newBug(message string) error {
 func main() {
 	app := cli.NewApp()
 
-	app.Name = "ssh-keygen"
+	app.Name = "ssh-keydgen"
 	app.Version = "0.4.0"
 
 	app.Author = "cornfeedhobo"
 	app.Copyright = "(c) 2018 cornfeedhobo"
 
-	app.HelpName = "ssh-keygen"
+	app.HelpName = "ssh-keydgen"
 	app.Usage = "deterministic authentication key generation"
-	app.UsageText = "ssh-keygen [[-t <type>] [-b <bits>] [-c <curve>] [-f <filename>] [-a <rounds>] [--at <time>] [--am <memory>] [--as <seedphrase>] [--aa]]"
+	app.UsageText = "ssh-keydgen [[-t <type>] [-b <bits>] [-c <curve>] [-f <filename>] [-a <rounds>] [--at <time>] [--am <memory>] [--as <seedphrase>] [--aa]]"
 
 	app.HideHelp = true
 	app.HideVersion = true
